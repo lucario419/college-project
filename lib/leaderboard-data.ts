@@ -1,40 +1,36 @@
+import { asc, desc, eq, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { userDashboards, users } from "@/db/schema";
 import { getTierSnapshot } from "@/lib/utils/tier";
-import { prisma } from "@/lib/db";
 
 export async function getLeaderboardData() {
-  const students = await prisma.user.findMany({
-    where: { role: "STUDENT" },
-    select: { id: true },
-  });
+  const points = sql<number>`coalesce(${userDashboards.points}, 0)`;
+  const completedAssessments = sql<number>`coalesce(${userDashboards.completedAssessments}, 0)`;
 
-  for (const student of students) {
-    const dashboard = await prisma.userDashboard.findUnique({ where: { userId: student.id } });
-    if (!dashboard) {
-      try {
-        await prisma.userDashboard.create({ data: { userId: student.id } });
-      } catch (error) {
-        const createdConcurrently = await prisma.userDashboard.findUnique({ where: { userId: student.id } });
-        if (!createdConcurrently) throw error;
-      }
-    }
-  }
+  const students = await db
+    .select({
+      userId: users.id,
+      name: users.name,
+      points,
+      completedAssessments,
+      codingScore: sql<number>`coalesce(${userDashboards.codingScore}, 0)`,
+      weeklyProgress: sql<number>`coalesce(${userDashboards.weeklyProgress}, 0)`,
+    })
+    .from(users)
+    .leftJoin(userDashboards, eq(userDashboards.userId, users.id))
+    .where(eq(users.role, "STUDENT"))
+    .orderBy(desc(points), desc(completedAssessments), asc(sql`coalesce(${userDashboards.updatedAt}, ${users.createdAt})`));
 
-  const dashboards = await prisma.userDashboard.findMany({
-    where: { user: { role: "STUDENT" } },
-    include: { user: { select: { id: true, name: true } } },
-    orderBy: [{ points: "desc" }, { completedAssessments: "desc" }, { updatedAt: "asc" }],
-  });
-
-  return dashboards.map((dashboard, index) => ({
-    id: dashboard.userId,
-    userId: dashboard.userId,
-    name: dashboard.user.name,
+  return students.map((student, index) => ({
+    id: student.userId,
+    userId: student.userId,
+    name: student.name,
     department: "Student",
-    points: dashboard.points,
-    level: getTierSnapshot(dashboard.points).currentLevel,
-    completedAssessments: dashboard.completedAssessments,
-    codingScore: dashboard.codingScore,
-    weeklyProgress: dashboard.weeklyProgress,
+    points: Number(student.points),
+    level: getTierSnapshot(Number(student.points)).currentLevel,
+    completedAssessments: Number(student.completedAssessments),
+    codingScore: Number(student.codingScore),
+    weeklyProgress: Number(student.weeklyProgress),
     rank: index + 1,
   }));
 }

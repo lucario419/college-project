@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSessionToken, createTokenHash, setSessionCookie, verifyPassword } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { createSession, verifyPassword } from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -17,22 +19,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Email and password are required." } }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+    const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email.trim().toLowerCase())).limit(1);
 
     if (!user || !(await verifyPassword(parsed.data.password, user.password))) {
       return NextResponse.json({ success: false, error: { code: "INVALID_CREDENTIALS", message: "Incorrect email or password." } }, { status: 401 });
     }
-
-    const token = createSessionToken();
-    const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    await prisma.session.create({
-      data: {
-        tokenHash: createTokenHash(token),
-        userId: user.id,
-        expiresAt: expiry,
-      },
-    });
 
     const response = NextResponse.json({
       success: true,
@@ -44,9 +35,10 @@ export async function POST(request: Request) {
       },
     });
 
-    setSessionCookie(response, token);
+    await createSession(response, user.id);
     return response;
   } catch (error) {
-    return NextResponse.json({ success: false, error: { code: "AUTH_ERROR", message: error instanceof Error ? error.message : "Authentication failed." } }, { status: 500 });
+    console.error("Login failed", error);
+    return NextResponse.json({ success: false, error: { code: "AUTH_ERROR", message: "Sign in is temporarily unavailable. Please try again." } }, { status: 500 });
   }
 }
