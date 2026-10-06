@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSessionToken, createTokenHash, hashPassword, setSessionCookie } from "@/lib/auth";
-import { assessments, courses } from "@/lib/data/mock-data";
-import { prisma } from "@/lib/db";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { createSession, hashPassword } from "@/lib/auth";
+import { ensureDashboard } from "@/lib/dashboard-data";
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -19,40 +20,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Please provide a valid name, email, and password." } }, { status: 400 });
     }
 
-    const email = parsed.data.email.toLowerCase();
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-
-    if (existingUser) {
-      return NextResponse.json({ success: false, error: { code: "USER_EXISTS", message: "An account with that email already exists." } }, { status: 409 });
-    }
-
-    const user = await prisma.user.create({
-      data: {
-        name: parsed.data.name,
+    const email = parsed.data.email.trim().toLowerCase();
+    const [user] = await db
+      .insert(users)
+      .values({
+        name: parsed.data.name.trim(),
         email,
         password: await hashPassword(parsed.data.password),
         role: "STUDENT",
-        dashboard: {
-          create: {
-            courseProgress: {
-              create: courses.map((course) => ({ courseId: course.id, title: course.title })),
-            },
-            assessmentProgress: {
-              create: assessments.map((assessment) => ({ assessmentId: assessment.id })),
-            },
-          },
-        },
-      },
-    });
+      })
+      .onConflictDoNothing({ target: users.email })
+      .returning();
 
-    const token = createSessionToken();
-    await prisma.session.create({
-      data: {
-        tokenHash: createTokenHash(token),
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+    if (!user) {
+      return NextResponse.json({ success: false, error: { code: "USER_EXISTS", message: "An account with that email already exists." } }, { status: 409 });
+    }
+
+    await ensureDashboard(user.id);
 
     const response = NextResponse.json({
       success: true,
@@ -64,9 +48,10 @@ export async function POST(request: Request) {
       },
     });
 
-    setSessionCookie(response, token);
+    await createSession(response, user.id);
     return response;
   } catch (error) {
-    return NextResponse.json({ success: false, error: { code: "REGISTRATION_ERROR", message: error instanceof Error ? error.message : "Registration failed." } }, { status: 500 });
+    console.error("Registration failed", error);
+    return NextResponse.json({ success: false, error: { code: "REGISTRATION_ERROR", message: "Registration is temporarily unavailable. Please try again." } }, { status: 500 });
   }
 }
