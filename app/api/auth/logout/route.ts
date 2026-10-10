@@ -1,18 +1,20 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { sessions } from "@/db/schema";
-import { clearSessionCookie, createTokenHash, getSessionToken } from "@/lib/auth";
+import { clearSessionCookie, createTokenHash } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
-export async function POST() {
-  const token = await getSessionToken();
+export async function POST(request: Request) {
+  const token = request.headers.get("cookie")
+    ?.split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith("unisphere_session="))
+    ?.split("=")[1];
 
   if (token) {
-    try {
-      await db.delete(sessions).where(eq(sessions.tokenHash, createTokenHash(token)));
-    } catch (error) {
-      console.error("Failed to delete session", error);
-    }
+    await prisma.session.deleteMany({
+      where: {
+        tokenHash: createTokenHash(token),
+      },
+    });
   }
 
   const response = NextResponse.json({ success: true });

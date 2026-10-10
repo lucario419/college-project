@@ -1,12 +1,9 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { and, eq, gt } from "drizzle-orm";
-import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
+import { prisma } from "./db";
 
 export const SESSION_COOKIE = "unisphere_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 export function createSessionToken() {
   return [
@@ -55,7 +52,7 @@ export function setSessionCookie(response: NextResponse, token: string) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    maxAge: 60 * 60 * 24 * 7,
   });
 }
 
@@ -74,18 +71,6 @@ export async function getSessionToken() {
   return cookieStore.get(SESSION_COOKIE)?.value ?? null;
 }
 
-export async function createSession(response: NextResponse, userId: string) {
-  const token = createSessionToken();
-
-  await db.insert(sessions).values({
-    tokenHash: createTokenHash(token),
-    userId,
-    expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
-  });
-
-  setSessionCookie(response, token);
-}
-
 export async function getCurrentUser() {
   const token = await getSessionToken();
 
@@ -93,12 +78,21 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const [row] = await db
-    .select({ user: users })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, createTokenHash(token)), gt(sessions.expiresAt, new Date())))
-    .limit(1);
+  const session = await prisma.session.findFirst({
+    where: {
+      tokenHash: createTokenHash(token),
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    include: {
+      user: true,
+    },
+  });
 
-  return row?.user ?? null;
+  if (!session) {
+    return null;
+  }
+
+  return session.user;
 }

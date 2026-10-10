@@ -1,11 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { judgeTwoSum } from "@/lib/services/assessment-judge";
-import { db } from "@/db";
-import { userActivities, userAssessmentProgress, userDashboards } from "@/db/schema";
+import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -29,38 +27,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const bestScore = Math.max(previous.score ?? 0, judged.score);
   const complete = bestScore === 100;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(userAssessmentProgress)
-      .set({
+  await prisma.$transaction(async (tx) => {
+    await tx.userAssessmentProgress.update({
+      where: { dashboardId_assessmentId: { dashboardId: dashboard.id, assessmentId: slug } },
+      data: {
         score: bestScore,
         status: complete ? "Completed" : "In progress",
         completedAt: complete ? previous.completedAt ?? new Date() : null,
-      })
-      .where(and(eq(userAssessmentProgress.dashboardId, dashboard.id), eq(userAssessmentProgress.assessmentId, slug)));
+      },
+    });
 
-    const results = await tx
-      .select({ score: userAssessmentProgress.score, status: userAssessmentProgress.status })
-      .from(userAssessmentProgress)
-      .where(eq(userAssessmentProgress.dashboardId, dashboard.id));
+    const results = await tx.userAssessmentProgress.findMany({
+      where: { dashboardId: dashboard.id },
+      select: { score: true, status: true },
+    });
     const completedAssessments = results.filter((item) => item.status === "Completed").length;
     const scored = results.flatMap((item) => item.score === null ? [] : [item.score]);
     const pointsAwarded = Math.max(0, bestScore - (previous.score ?? 0));
 
-    await tx
-      .update(userDashboards)
-      .set({
-        points: sql`${userDashboards.points} + ${pointsAwarded}`,
+    await tx.userDashboard.update({
+      where: { id: dashboard.id },
+      data: {
+        points: { increment: pointsAwarded },
         completedAssessments,
         codingScore: scored.length ? Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length) : 0,
         ...(complete ? { weeklyProgress: Math.min(100, dashboard.weeklyProgress + pointsAwarded) } : {}),
-      })
-      .where(eq(userDashboards.id, dashboard.id));
+      },
+    });
 
     if (pointsAwarded > 0) {
-      await tx.insert(userActivities).values({
-        dashboardId: dashboard.id,
-        description: `Earned ${pointsAwarded} points in Coding Assessment: Two Sum`,
+      await tx.userActivity.create({
+        data: { dashboardId: dashboard.id, description: `Earned ${pointsAwarded} points in Coding Assessment: Two Sum` },
       });
     }
   });
