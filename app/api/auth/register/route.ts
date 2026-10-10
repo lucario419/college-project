@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSession, generateStudentId, hashPassword } from "@/lib/auth";
 import { ensureDashboard } from "@/lib/dashboard-data";
 
 const registerSchema = z.object({
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
         name: parsed.data.name.trim(),
         email,
         password: await hashPassword(parsed.data.password),
+        studentId: generateStudentId(),
         role: "STUDENT",
       })
       .onConflictDoNothing({ target: users.email })
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
+        studentId: user.studentId,
         role: user.role,
       },
     });

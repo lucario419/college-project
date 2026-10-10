@@ -16,7 +16,7 @@ export const studentProfile: StudentProfile = {
   email: "student@university.edu",
   organization: "University of Technology",
   batch: "2028 Batch",
-  studentId: "UR-2028-104",
+  studentId: "STU-2028-001",
   points: 9,
   role: "STUDENT",
 };

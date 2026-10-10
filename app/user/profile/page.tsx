@@ -26,7 +26,7 @@ export default async function ProfilePage() {
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center gap-2 text-sm text-slate-500"><UserRound size={16} /> Student ID</div>
-            <p className="mt-2 font-medium text-slate-900">Not assigned</p>
+            <p className="mt-2 font-medium text-slate-900">{user.studentId ?? "Not assigned"}</p>
           </div>
         </div>
 

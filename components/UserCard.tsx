@@ -1,6 +1,6 @@
 import { Mail, Building2, CalendarDays, IdCard, FileBarChart, KeyRound } from "lucide-react";
 
-type Props = { user: { name: string; email: string; role: string }; points: number };
+type Props = { user: { name: string; email: string; role: string; studentId?: string | null }; points: number };
 
 export default function UserCard({ user, points }: Props) {
   const initials = user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ST";
@@ -8,7 +8,7 @@ export default function UserCard({ user, points }: Props) {
     { icon: Mail, label: "Email", value: user.email },
     { icon: Building2, label: "Organization", value: "University" },
     { icon: CalendarDays, label: "Account type", value: user.role.toLowerCase() },
-    { icon: IdCard, label: "Student ID", value: "Not assigned" },
+    { icon: IdCard, label: "Student ID", value: user.studentId ?? "Not assigned" },
   ];
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

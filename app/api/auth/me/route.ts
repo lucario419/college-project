@@ -8,5 +8,5 @@ export async function GET() {
     return NextResponse.json({ success: false, error: { code: "UNAUTHENTICATED", message: "Not signed in." } }, { status: 401 });
   }
 
-  return NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  return NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email, studentId: user.studentId, role: user.role } });
 }

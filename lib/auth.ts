@@ -20,6 +20,12 @@ export function createTokenHash(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+export function generateStudentId() {
+  const year = new Date().getFullYear();
+  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
+  return `STU-${year}-${suffix}`;
+}
+
 export async function hashPassword(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");

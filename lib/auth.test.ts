@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSessionToken, hashPassword, verifyPassword } from "./auth";
+import { createSessionToken, generateStudentId, hashPassword, verifyPassword } from "./auth";
 
 describe("auth helpers", () => {
   it("hashes and verifies a password", async () => {
@@ -14,5 +14,12 @@ describe("auth helpers", () => {
     const token = createSessionToken();
 
     expect(token).toMatch(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/);
+  });
+
+  it("creates a unique student id in the expected format", () => {
+    const studentId = generateStudentId();
+
+    expect(studentId).toMatch(/^STU-\d{4}-[A-F0-9]{8}$/);
+    expect(generateStudentId()).not.toBe(studentId);
   });
 });
