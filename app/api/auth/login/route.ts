@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Email and password are required." } }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email.trim().toLowerCase() } });
 
     if (!user || !(await verifyPassword(parsed.data.password, user.password))) {
       return NextResponse.json({ success: false, error: { code: "INVALID_CREDENTIALS", message: "Incorrect email or password." } }, { status: 401 });
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     setSessionCookie(response, token);
     return response;
   } catch (error) {
-    return NextResponse.json({ success: false, error: { code: "AUTH_ERROR", message: error instanceof Error ? error.message : "Authentication failed." } }, { status: 500 });
+    console.error("Login failed", error);
+    return NextResponse.json({ success: false, error: { code: "AUTH_ERROR", message: "Sign in is temporarily unavailable. Please try again." } }, { status: 500 });
   }
 }

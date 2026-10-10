@@ -19,7 +19,7 @@ export function createTokenHash(token: string) {
 
 export function generateStudentId() {
   const year = new Date().getFullYear();
-  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
+  const suffix = crypto.randomUUID().toUpperCase();
   return `STU-${year}-${suffix}`;
 }
 

@@ -19,7 +19,7 @@ describe("auth helpers", () => {
   it("creates a unique student id in the expected format", () => {
     const studentId = generateStudentId();
 
-    expect(studentId).toMatch(/^STU-\d{4}-[A-F0-9]{8}$/);
+    expect(studentId).toMatch(/^STU-\d{4}-[A-F0-9-]{36}$/);
     expect(generateStudentId()).not.toBe(studentId);
   });
 });

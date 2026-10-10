@@ -4,11 +4,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const password = 'Student@123';
+const generateStudentId = () => `STU-${new Date().getFullYear()}-${crypto.randomUUID().toUpperCase()}`;
 const demoUsers = [
-  { name: 'UDAY REDDY YASA', email: 'student@university.edu', role: 'STUDENT' },
-  { name: 'PRIYA SHARMA', email: 'priya@university.edu', role: 'STUDENT' },
-  { name: 'ARUN KUMAR', email: 'arun@university.edu', role: 'STUDENT' },
-  { name: 'MEERA NAIR', email: 'meera@university.edu', role: 'STUDENT' },
+  { name: 'UDAY REDDY YASA', email: 'student@university.edu', studentId: 'STU-2028-001', role: 'STUDENT' },
+  { name: 'PRIYA SHARMA', email: 'priya@university.edu', studentId: 'STU-2028-002', role: 'STUDENT' },
+  { name: 'ARUN KUMAR', email: 'arun@university.edu', studentId: 'STU-2028-003', role: 'STUDENT' },
+  { name: 'MEERA NAIR', email: 'meera@university.edu', studentId: 'STU-2028-004', role: 'STUDENT' },
 ];
 
 const demoUsersWithPassword = demoUsers.map((user) => {
@@ -74,7 +75,7 @@ async function main() {
   for (const user of demoUsersWithPassword) {
     const seededUser = await prisma.user.upsert({
       where: { email: user.email },
-      update: { name: user.name, password: user.password, role: user.role },
+      update: { name: user.name, password: user.password, studentId: user.studentId, role: user.role },
       create: user,
     });
 
@@ -90,6 +91,17 @@ async function main() {
     await prisma.userAssessmentProgress.createMany({
       data: assessments.map((assessment) => ({ dashboardId: dashboard.id, assessmentId: assessment.id })),
       skipDuplicates: true,
+    });
+  }
+
+  const studentsWithoutIds = await prisma.user.findMany({
+    where: { role: 'STUDENT', studentId: null },
+    select: { id: true },
+  });
+  for (const student of studentsWithoutIds) {
+    await prisma.user.update({
+      where: { id: student.id },
+      data: { studentId: generateStudentId() },
     });
   }
 

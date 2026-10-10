@@ -7,7 +7,8 @@ export default async function UserLayout({ children }: { children: React.ReactNo
 
   try {
     user = await getCurrentUser();
-  } catch {
+  } catch (error) {
+    console.error("Failed to load current user", error);
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50 p-6">
         <section role="alert" className="w-full max-w-lg space-y-4 rounded-xl border border-amber-200 bg-white p-6 shadow-sm">
